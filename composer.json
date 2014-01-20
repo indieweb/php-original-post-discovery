@@ -1,15 +1,23 @@
 {
-    "name": "indieweb/original-post-discovery",
-    "description": "Functions for doing original post discovery in PHP",
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "Barnaby Walters",
-            "email": "barnaby@waterpigs.co.uk"
-        }
-    ],
-    "minimum-stability": "dev",
-    "require": {
-
-    }
+	"name": "indieweb/original-post-discovery",
+	"description": "Functions for doing original post discovery in PHP",
+	"license": "MIT",
+	"authors": [{
+		"name": "Barnaby Walters",
+		"email": "barnaby@waterpigs.co.uk"
+	}],
+	"minimum-stability": "dev",
+	"require": {
+		"mf2/mf2": "~0.2",
+		"mf2/shim": "~0.2",
+		"barnabywalters/mf-cleaner": "*",
+		"tantek/cassis": "*",
+		"guzzle/guzzle": "*"
+	},
+	"require-dev": {
+		"phpunit/phpunit": "*"
+	},
+	"autoload": {
+		"files": ["original-post-discovery.php"]
+	}
 }
