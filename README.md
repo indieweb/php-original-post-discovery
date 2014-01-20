@@ -4,7 +4,7 @@ A set of PHP functions for determining the canonical URL for a post, given a POS
 
 ## Usage
 
-Install using [Composer](https://getcomposer.org) `./composer.phar require indieweb/original-post-discovery:*`.
+Install using [Composer](https://getcomposer.org) `./composer.phar require indieweb/original-post-discovery:dev-master`.
 
 ```php
 <?php
