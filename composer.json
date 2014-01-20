@@ -1,0 +1,15 @@
+{
+    "name": "indieweb/original-post-discovery",
+    "description": "Functions for doing original post discovery in PHP",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Barnaby Walters",
+            "email": "barnaby@waterpigs.co.uk"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+
+    }
+}
