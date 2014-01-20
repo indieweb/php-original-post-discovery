@@ -6,6 +6,88 @@ use BarnabyWalters\Mf2 as M;
 use Guzzle;
 use Mf2;
 
+/**
+ * Discover Original Post
+ * 
+ * Given a URL, discover the URL which can be considered the “original” version. If an error
+ * occurs, $url will be null. Otherwise, $url will always be a string, even if it’s exactly 
+ * the same string as the one passed to the function. Example:
+ * 
+ *     list($url, $err) = IndieWeb\discoverOriginalPost('https://twitter.com/BarnabyWalters/status/423465842148671488');
+ *     if ($err !== null) {
+ *       // handle error
+ *     }
+ *     // do something with $url
+ * 
+ * @param string $url
+ * @param Guzzle\Http\Client $client = null Optionally a Guzzle client to use for requests.
+ * @return [$url, Exception $err]
+ */
+function discoverOriginalPost($url, Guzzle\Http\Client $client = null) {
+	
+	ob_start();
+	$url = web_address_to_uri($url, true);
+	ob_end_clean();
+	
+	if ($client === null)
+		$client = new Guzzle\Http\Client();
+	
+	try {
+		$content = $client->get($url)->send()->getBody(true);
+	} catch (Guzzle\Common\Exception\GuzzleException $e) {
+		return [null, $e];
+	}
+	
+	// TODO: follow steps 1 and 2 of iwc.com/original-post-discovery
+	
+	if (parse_url($url, PHP_URL_HOST) == 'twitter.com'):
+		$originalPostUrl = originalPostUrlFromTwitter($content);
+	else:
+		$originalPostUrl = null;
+	endif;
+	
+	// Check that the document at $originalPostUrl links to $url
+	try {
+		$response = $client->get($originalPostUrl)->send();
+	} catch (Guzzle\Common\Exception\GuzzleException $e) {
+		return [null, $e];
+	}
+	
+	$originalPostUrl = $response->getEffectiveUrl();
+	
+	if (!stristr($response->getContentType(), 'html'))
+		return [null, new Exception("Document at '{$originalPostUrl}' was not transmitted as text/html")];
+	
+	$originalPostMf = Mf2\parse($response->getBody(true), $originalPostUrl);
+	
+	// Check that $url is linked to as rel-syndication or u-syndication at $originalPostUrl
+	if (isset($originalPostMf['rels']) and in_array($url, $originalPostMf['rels']['syndication'])):
+		return [$response->getEffectiveUrl(), null];
+	elseif (count(M\findMicroformatsByProperty($originalPostMf, 'syndication', $url)) !== 0):
+		return [$response->getEffectiveUrl(), null];
+	else:
+		// resolve syndication URLs to see if any syndication URLs resolve to $url
+		$mfWithSyndication = M\findMicroformatsByCallable($originalPostMf, function ($mf) {
+			return M\hasProp($mf, 'syndication');
+		});
+		$mfSyndicationUrls = array_reduce($mfWithSyndication, function ($all, $mf) {
+			return array_merge($all, M\getPlaintextArray($mf, 'syndication'));
+		}, []);
+		
+		$allRels = array_unique(array_merge($originalPostMf['rels']['syndication'], $mfSyndicationUrls));
+		
+		$responses = $client->get(array_map(function ($synUrl) use ($client) { return $client->get($synUrl); }, $allRels));
+		
+		foreach ($responses as $response) {
+			if ($response->getEffectiveUrl() === $url) {
+				return [$response->getEffectiveUrl(), null];
+			}
+		}
+	endif;
+	
+	return [$url, null];
+}
+
 function cleanString($str) {
 	// Replace non breaking spaces with normal spaces
 	$str = str_replace(mb_convert_encoding('&nbsp;', 'UTF-8', 'HTML-ENTITIES'), ' ', $str);
@@ -52,7 +134,6 @@ function originalPostUrlFromTwitter($html) {
 	if (empty($hEntries))
 		return null;
 	
-	// TODO: should this be getting HTML or plaintext? Hunch is plaintext, easier
 	$content = M\getPlaintext($hEntries[0], 'content');
 	$content = stripHashtags($content);
 	
@@ -103,79 +184,6 @@ function getUrlFromPermashortid($content) {
 		
 		return trim($domain . '/' . $path);
 	}
-	
-	return null;
-}
-
-// returns [$url | null, $err]
-function discoverOriginalPost($url, Log\LoggerInterface $logger = null) {
-	if ($logger === null)
-		$logger = new Log\NullLogger();
-	
-	ob_start();
-	$url = web_address_to_uri($url, true);
-	ob_end_clean();
-	
-	$client = new Guzzle\Http\Client();
-	
-	try {
-		$content = $client->get($url)->send()->getBody(true);
-	} catch (Guzzle\Common\Exception\GuzzleException $e) {
-		return [null, $e];
-	}
-	
-	// TODO: follow steps 1 and 2 of iwc.com/original-post-discovery
-	
-	if (parse_url($url, PHP_URL_HOST) == 'twitter.com'):
-		$originalPostUrl = originalPostUrlFromTwitter($content);
-	else:
-		$originalPostUrl = null;
-	endif;
-	
-	// Check that the document at $originalPostUrl links to $url
-	try {
-		$response = $client->get($originalPostUrl)->send();
-	} catch (Guzzle\Common\Exception\GuzzleException $e) {
-		return [null, $e];
-	}
-	
-	$logger->info('Services::original-post fetched:', [
-		'given URL' => $originalPostUrl,
-		'resolved URL' => $response->getEffectiveUrl(),
-		'content type' => $response->getContentType()
-	]);
-	
-	$originalPostUrl = $response->getEffectiveUrl();
-	
-	if (!stristr($response->getContentType(), 'html'))
-		return [null, new Exception("Document at '{$originalPostUrl}' was not transmitted as text/html")];
-	
-	$originalPostMf = Mf2\parse($response->getBody(true), $originalPostUrl);
-	
-	// Check that $url is linked to as rel-syndication or u-syndication at $originalPostUrl
-	if (isset($originalPostMf['rels']) and in_array($url, $originalPostMf['rels']['syndication'])):
-		return $response->getEffectiveUrl();
-	elseif (count(M\findMicroformatsByProperty($originalPostMf, 'syndication', $url)) !== 0):
-		return $response->getEffectiveUrl();
-	else:
-		// resolve syndication URLs to see if any syndication URLs resolve to $url
-		$mfWithSyndication = M\findMicroformatsByCallable($originalPostMf, function ($mf) {
-			return M\hasProp($mf, 'syndication');
-		});
-		$mfSyndicationUrls = array_reduce($mfWithSyndication, function ($all, $mf) {
-			return array_merge($all, M\getPlaintextArray($mf, 'syndication'));
-		}, []);
-		
-		$allRels = array_unique(array_merge($originalPostMf['rels']['syndication'], $mfSyndicationUrls));
-		
-		$responses = $client->get(array_map(function ($synUrl) use ($client) { return $client->get($synUrl); }, $allRels));
-		
-		foreach ($responses as $response) {
-			if ($response->getEffectiveUrl() === $url) {
-				return $response->getEffectiveUrl();
-			}
-		}
-	endif;
 	
 	return null;
 }
