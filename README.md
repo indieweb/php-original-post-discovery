@@ -1,6 +1,8 @@
 # php-original-post-discovery
 
-A set of PHP functions for determining the canonical URL for a post, given a POSSEd copy.
+A set of PHP functions for determining the canonical URL for a post, given a POSSEd copy. A partial implementation of the algorithm outlined at [original-post-discovery](http://indiewebcamp.com/original-post-discovery).
+
+A demo can be found [on waterpigs.co.uk/services/original-post](http://waterpigs.co.uk/services/original-post/).
 
 ## Usage
 
