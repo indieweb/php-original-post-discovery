@@ -8,8 +8,8 @@
 	}],
 	"minimum-stability": "dev",
 	"require": {
-		"mf2/mf2": "~0.2",
-		"mf2/shim": "~0.2",
+		"mf2/mf2": "*",
+		"mf2/shim": "*",
 		"barnabywalters/mf-cleaner": "*",
 		"tantek/cassis": "*",
 		"guzzle/guzzle": "*"
